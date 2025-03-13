@@ -684,6 +684,10 @@ function CombatTab() {
   const [script, setScript] = useState(selected.script || '');
   const [compileError, setCompileError] = useState("");
 
+  useEffect(() => {
+    setScript(selected.script || '')
+  }, [selected]);
+
   const compile = () => {
     const semicolSects = script.replaceAll(":", "").split(';').map(s => s.trim()).filter(s => s !== "");
 
@@ -932,6 +936,7 @@ function CombatTab() {
           }
         }).join(', ')}`,
         victoryChance: (b.result.attackerVictories / b.iterations),
+        iterations: b.iterations
       }
     });
   }, [selected, units]);
@@ -1153,50 +1158,69 @@ function CombatTab() {
           {
             inputTab === "Script"
             ? <Stack>
-              <TextField
-                multiline
-                label="Script"
-                minRows={3}
-                placeholder="for i = (start,end,step)                           // If a unit's final value is negative it counts as zero
+              <Stack direction='row'>
+                <TextField
+                  multiline
+                  label="Script"
+                  minRows={3}
+                  placeholder="for i = (start,end,step)                           // If a unit's final value is negative it counts as zero
 attacker: (local_start[, local_step])object, ... ; // local_step is multiplied with i to get the final number of objects
 defender: (local_start[, local_step])object, ... ; // object can be any unit, or ATK & DEF (For fixed modifiers)"
-                value={script}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                  setScript(event.target.value);
-                }}
-                slotProps={{
-                  input: {
-                    spellCheck: false,
-                    sx: {
-                      fontFamily: "monospace"
+                  value={script}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    setScript(event.target.value);
+                  }}
+                  slotProps={{
+                    input: {
+                      spellCheck: false,
+                      sx: {
+                        fontFamily: "monospace"
+                      }
                     }
+                  }}
+                  sx={{flexGrow: 1}}
+                />
+                <Button
+                  disabled={
+                    script === selected.script
+                    || script === ""
                   }
-                }}
-              />
+                  onClick={compile}
+                  variant='contained'
+                >
+                  Compile
+                </Button>
+              </Stack>
               {compileError ? <Alert severity="error">
                 <AlertTitle>Failed to compile</AlertTitle>
                 {compileError}
               </Alert> : null}
-              <Button
-                disabled={
-                  script === selected.script
-                  || script === ""
-                }
-                onClick={compile}
-              >
-                Compile
-              </Button>
             </Stack>
             : null
           }
         </Stack>
         <BarChart
-          xAxis={[{ scaleType: 'band', dataKey: 'battle' }]}
-          yAxis={[{ max: 1 }]}
+          xAxis={[{ scaleType: 'band', dataKey: 'battle', label: 'Battles' }]}
+          yAxis={[{ max: 1, label: "Chance" }]}
           dataset={dataset}
-          series={[{dataKey: 'victoryChance', label: "Victory Chance"}]}
+          series={[
+            {dataKey: 'victoryChance', label: "Victory Chance"}
+          ]}
           height={444}
         />
+        {
+          inputTab === "Script"
+          ? <Typography textAlign='center'>
+            Iterations: {selected.battles.reduce<number | null>((a, c) => {
+              if (a === null) return c.iterations;
+              return Math.min(a, c.iterations);
+            }, null) ?? "--"} - {selected.battles.reduce<number | null>((a, c) => {
+              if (a === null) return c.iterations;
+              return Math.max(a, c.iterations);
+            }, null) ?? "--"}
+          </Typography>
+          : null
+        }
         {!isSimRunning ? <Button
           endIcon={<PlayArrowIcon />}
           onClick={() => {
