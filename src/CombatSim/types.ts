@@ -22,11 +22,12 @@ export type BattleData = {
   iterations: number,
   result: {
     attackerVictories: number
-  }
+  },
 };
 
 export type CombatSimulation = {
   id: string;
   name: string;
   battles: BattleData[];
+  script?: string;
 };
