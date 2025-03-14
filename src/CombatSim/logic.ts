@@ -50,7 +50,7 @@ class RoundSideState {
     this.opponent = o;
   }
 
-  roll() {
+  attack() {
     for (let u of this.battleUnits) {
       const fsAtkCheck = (!this.roundState.firstStrike || u.special.first_strike)
       for (let j = 0; j < u.amount; j++) {
@@ -262,8 +262,8 @@ class CombatSimRunner {
           attacker.setOpponent(defender);
           defender.setOpponent(attacker);
 
-          attacker.roll();
-          defender.roll();
+          attacker.attack();
+          defender.attack();
 
           attacker.dieFromWounds();
           defender.dieFromWounds();

@@ -14,6 +14,7 @@ import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp
 import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 import combatSimRunner from "./logic"
 
@@ -805,6 +806,7 @@ function BattleCard({
 
 const combatSimInputTabAtom = atomWithStorage<"Tables" | "Script">("combatSimInputTabAtom", "Tables");
 
+const combatFilterAtom = atomWithStorage("combatFilterAtom", "");
 
 function CombatTab() {
   const [inputTab, setInputTab] = useAtom(combatSimInputTabAtom);
@@ -1083,11 +1085,35 @@ function CombatTab() {
     });
   }, [selected, units]);
 
+  const [filter, setFilter] = useAtom(combatFilterAtom);
+
+  const filteredCombats = useMemo(() => {
+    if (filter) {
+      return combats.filter(c => c.name.includes(filter));
+    }
+    return combats;
+  }, [filter, combats]);
+
   return <Stack direction='row'>
-    <Box>
-      <List>
+    <Stack>
+      <List
+        sx={{
+          maxHeight: "85vh",
+          overflowY: "auto",
+          pr: 2,
+        }}
+      >
+        <ListItem>
+          <TextField
+            label="Search Filter"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+            }}
+          />
+        </ListItem>
         {
-          combats.map(c => {
+          filteredCombats.map(c => {
             return <ListItemButton
               key={c.id}
               selected={selected.id === c.id}
@@ -1113,7 +1139,7 @@ function CombatTab() {
         </ListItemButton>
       </List>
       <Divider />
-    </Box>
+    </Stack>
     <Divider orientation='vertical' flexItem />
     <Container>
       <Stack sx={{pt: 3}}>
@@ -1211,7 +1237,7 @@ function CombatTab() {
               </Dialog>
             }
           </Stack>
-          <Stack mt={2} mb={1} direction='row' justifyContent='center' spacing={5}>
+          <Stack mt={2} mb={1} direction='row' justifyContent='center' spacing={5} position='relative'>
             <Typography variant="h5" textAlign="center" sx={{textDecoration: 'underline'}}>
               Simulated Battles
             </Typography>
@@ -1257,6 +1283,26 @@ function CombatTab() {
             >
               Stop simulation
             </Button> : null}
+            <Button
+              sx={{position: 'absolute', right: 0, top: 0, bottom: 0}}
+              endIcon={<RefreshIcon />}
+              color='secondary'
+              onClick={() => {
+                setIsSimRunning(false);
+                combatSimRunner.end();
+                setSelected(p => {
+                  const next = structuredClone(p);
+                  for (const b of next.battles) {
+                    b.iterations = 0;
+                    b.result.attackerVictories = 0;
+                    b.result.draws = 0;
+                  }
+                  return next;
+                })
+              }}
+            >
+              Refresh simulation
+            </Button>
           </Stack>
           {
             inputTab === "Tables"
