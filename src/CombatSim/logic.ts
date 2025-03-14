@@ -90,7 +90,7 @@ class RoundSideState {
           }
         }
       }
-      if (u.special.phalanx && !this.roundState.dog) {
+      if (u.special.phalanx && fsAtkCheck && !this.roundState.dog) {
         for (let j = 0; j < u.amount - 1; j++) {
           let roll = Math.floor(Math.random() * 6) + 1
           if (roll >= 5) {
