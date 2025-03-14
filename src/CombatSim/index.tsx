@@ -1,4 +1,4 @@
-import { Alert, AlertTitle, Autocomplete, Box, Button, Card, CardContent, CardHeader, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, FormControlLabel, Grid2, IconButton, List, ListItem, ListItemButton, ListItemText, Stack, Switch, Tab, Tabs, TextField, Typography } from "@mui/material"
+import { Alert, AlertTitle, Autocomplete, Box, Button, Card, CardContent, CardHeader, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, FormControlLabel, Grid2, IconButton, List, ListItem, ListItemButton, ListItemText, Stack, Switch, Tab, Tabs, TextField, Tooltip, Typography } from "@mui/material"
 import { BarChart } from "@mui/x-charts"
 import { atom, useAtom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
@@ -24,6 +24,7 @@ const sideActionList = (() => {
     ATK: true,
     DEF: true,
     "ATK&DEF": true,
+    DBL: true,
     NIL: true,
   }
   const list: SideAction[] = []
@@ -237,25 +238,132 @@ function EditUnitsMode() {
               : undefined
             }
           />
-          <FormControlLabel
-            control={
-            <Switch
-              checked={editing.special.support || false}
-              onChange={(_, c) => {
-                setEditing(p => {
-                  return {
-                    ...p,
-                    special: {
-                      ...p.special,
-                      support: c
+          <Tooltip placement="left" title="This unit can't die, but doesn't count when determining victor.">
+            <FormControlLabel
+              control={
+              <Switch
+                checked={editing.special.support || false}
+                onChange={(_, c) => {
+                  setEditing(p => {
+                    return {
+                      ...p,
+                      special: {
+                        ...p.special,
+                        support: c
+                      }
                     }
-                  }
-                })
-              }}
+                  })
+                }}
+              />
+              }
+              label="Support Unit"
             />
-            }
-            label="Support Unit"
-          />
+          </Tooltip>
+          <Tooltip placement="left" title="This unit can attack once before anyone else can attack.">
+            <FormControlLabel
+              control={
+              <Switch
+                checked={editing.special.first_strike || false}
+                onChange={(_, c) => {
+                  setEditing(p => {
+                    return {
+                      ...p,
+                      special: {
+                        ...p.special,
+                        first_strike: c
+                      }
+                    }
+                  })
+                }}
+              />
+              }
+              label="First Strike"
+            />
+          </Tooltip>
+          <Tooltip placement="left" title="This unit will roll one more time after getting mortally wounded.">
+            <FormControlLabel
+              control={
+              <Switch
+                checked={editing.special.bull_strength || false}
+                onChange={(_, c) => {
+                  setEditing(p => {
+                    return {
+                      ...p,
+                      special: {
+                        ...p.special,
+                        bull_strength: c
+                      }
+                    }
+                  })
+                }}
+              />
+              }
+              label="Bull's Strength"
+            />
+          </Tooltip>
+          <Tooltip placement="left" title="This unit is fearless and doesn't retreat.">
+            <FormControlLabel
+              control={
+              <Switch
+                checked={editing.special.epi_tas || false}
+                onChange={(_, c) => {
+                  setEditing(p => {
+                    return {
+                      ...p,
+                      special: {
+                        ...p.special,
+                        epi_tas: c
+                      }
+                    }
+                  })
+                }}
+              />
+              }
+              label="Epi Tas"
+            />
+          </Tooltip>
+          <Tooltip placement="left" title="This unit knows effective teamwork. Roll (#phalanx - 1) Hoplite[2xatk,1xdef,3xnil] dice when fighting.">
+            <FormControlLabel
+              control={
+              <Switch
+                checked={editing.special.phalanx || false}
+                onChange={(_, c) => {
+                  setEditing(p => {
+                    return {
+                      ...p,
+                      special: {
+                        ...p.special,
+                        phalanx: c
+                      }
+                    }
+                  })
+                }}
+              />
+              }
+              label="Phalanx"
+            />
+          </Tooltip>
+          <Tooltip placement="left" title="This unit has a dog. During first round (after first strike) rolls dog dice (2/6 ATK) and if dogs eat >= half the numbers of enemies each unit (except fearless ones) rolls for 50% retreat chance. Afterwards rolls as an extra unit during battle until its master dies.">
+            <FormControlLabel
+              control={
+              <Switch
+                checked={editing.special.dawg || false}
+                onChange={(_, c) => {
+                  setEditing(p => {
+                    return {
+                      ...p,
+                      special: {
+                        ...p.special,
+                        dawg: c
+                      }
+                    }
+                  })
+                }}
+              />
+              }
+              label="Dawg"
+            />
+          </Tooltip>
         </Stack>
         <Stack spacing={1}>
           {
@@ -478,6 +586,28 @@ function BattleUnitsCard({
           : null
         }
       </List>
+      <Stack>
+        <Button
+          variant={battle[field].general ? "contained" : "text"}
+          onClick={() => {
+            setSelected(prev => {
+              const next: typeof prev = structuredClone(prev);
+              const selected_battle = next.battles.find(b => b.id === battle.id);
+              if (selected_battle) {
+                selected_battle[field].general = !selected_battle[field].general;
+                selected_battle.iterations = 0;
+                selected_battle.result = {
+                  attackerVictories: 0
+                };
+                next.script = undefined;
+              }
+              return next;
+            })
+          }}
+        >
+          General
+        </Button>
+      </Stack>
       <Stack
         direction='row'
         justifyContent='space-between'
@@ -503,8 +633,8 @@ function BattleUnitsCard({
                 selected_battle.result = {
                   attackerVictories: 0
                 };
+                next.script = undefined;
               }
-              next.script = undefined;
               return next;
             });
           }}
@@ -736,17 +866,20 @@ function CombatTab() {
     type Side = {
       ATK: Val,
       DEF: Val,
-      units: {amount: Val, unit: UnitData}[]
+      units: {amount: Val, unit: UnitData}[],
+      general: boolean
     }
 
     // Parse sides
     const sides = semicolSects.map(sec => {
-      sec = sec.trim().replace(/^attacker/, "").replace(/^defender/, "")
+      const general = /general/.test(sec);
+      sec = sec.trim().replace(/^attacker/, "").replace(/^defender/, "").replace(/^general/, "")
       const objects = sec.replace(/\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g, "($1|$2)").split(',').map(s => s.trim()).filter(s => s);
       const side: Side = {
         ATK: {start: 0, step: 0},
         DEF: {start: 0, step: 0},
-        units: []
+        units: [],
+        general
       }
       side.units = objects.flatMap(o => {
         const match = o.match(/^\s*\(\s*(-?\d+(?:\.\d+)?)\s*(?:\|\s*(-?\d+(?:\.\d+)?)\s*)?\)\s*(?<name>\w+)$/);
@@ -818,7 +951,8 @@ function CombatTab() {
             } else {
               return [];
             }
-          })
+          }),
+          general: attacker.general
         },
         defender: {
           attackModifier: defender.ATK.start + defender.ATK.step * i,
@@ -833,7 +967,8 @@ function CombatTab() {
             } else {
               return [];
             }
-          })
+          }),
+          general: defender.general
         }
       })
     }

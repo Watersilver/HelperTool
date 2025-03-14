@@ -1,10 +1,11 @@
-import { BattleData, CombatSimulation, SideAction, UnitData } from "./types";
+import { BattleData, BattleSide, CombatSimulation, SideAction, UnitData } from "./types";
 
 const sideActionList = (() => {
   const all: {[K in SideAction]: true} = {
     ATK: true,
     DEF: true,
     "ATK&DEF": true,
+    DBL: true,
     NIL: true,
   }
   const list: SideAction[] = []
@@ -13,6 +14,158 @@ const sideActionList = (() => {
   }
   return list
 })();
+
+
+type BattleUnit = UnitData & {
+  totalSides: number;
+  sidesList: {
+    action: SideAction;
+    chance: number;
+  }[];
+  amount: number;
+  dying: number;
+}
+
+class RoundSideState {
+  atk = 0;
+  def = 0;
+  general = false;
+
+  battleUnits: BattleUnit[];
+  opponent: RoundSideState | null = null;
+  roundState: {
+    firstStrike: boolean;
+    dog: boolean;
+  }
+
+  constructor(bs: BattleSide, u: BattleUnit[], rs: typeof this.roundState) {
+    this.atk = bs.attackModifier;
+    this.def = bs.defenceModifier;
+    this.general = !!bs.general;
+    this.battleUnits = u;
+    this.roundState = rs;
+  }
+
+  setOpponent(o: RoundSideState) {
+    this.opponent = o;
+  }
+
+  roll() {
+    for (let u of this.battleUnits) {
+      const fsAtkCheck = (!this.roundState.firstStrike || u.special.first_strike)
+      for (let j = 0; j < u.amount; j++) {
+        let success = false;
+        let roll = Math.floor(Math.random() * u.totalSides) + 1
+        for (let side of u.sidesList) {
+          if (roll > side.chance) {
+            roll -= side.chance
+          } else {
+            if (fsAtkCheck && !this.roundState.dog) {
+              if (side.action === 'ATK' || side.action === "ATK&DEF") {
+                this.atk++;
+                success = true;
+              }
+              if (side.action === 'DBL') {
+                this.atk += 2;
+                success = true;
+              }
+            }
+            if (side.action === 'DEF' || side.action === "ATK&DEF") {
+              this.def++;
+              success = true;
+            }
+            break;
+          }
+        }
+        if (!success && this.general) {
+          this.general = false;
+          j--;
+        }
+      }
+      if (u.special.dawg && fsAtkCheck) {
+        for (let j = 0; j < u.amount; j++) {
+          let roll = Math.floor(Math.random() * 6) + 1
+          if (roll >= 5) {
+            this.atk++;
+          }
+        }
+      }
+      if (u.special.phalanx && !this.roundState.dog) {
+        for (let j = 0; j < u.amount - 1; j++) {
+          let roll = Math.floor(Math.random() * 6) + 1
+          if (roll >= 5) {
+            this.atk++;
+          } else if (roll == 4) {
+            this.def++;
+          }
+        }
+      }
+    }
+  }
+
+  dieFromWounds() {
+    for (let i = this.battleUnits.length - 1; i >= 0; i--) {
+      const u = this.battleUnits[i];
+      if (u) {
+        u.amount -= u.dying;
+        if (u.amount <= 0) {
+          this.battleUnits.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  applyDamageToEnemy() {
+    if (!this.opponent) return;
+    this.atk -= this.opponent.def;
+
+    const panic = this.roundState.dog && (Math.floor(this.opponent.battleUnits.length) <= this.atk);
+
+    for (let i = this.opponent.battleUnits.length - 1; i >= 0; i--) {
+      if (this.atk <= 0) break;
+      const u = this.opponent.battleUnits[i];
+      if (u) {
+        const maxPossibleDeaths = Math.min(u.amount - u.dying, this.atk);
+        this.atk -= maxPossibleDeaths;
+        if (u.special.bull_strength) {
+          u.dying += maxPossibleDeaths;
+        } else {
+          u.amount -= maxPossibleDeaths;
+          if (u.amount <= 0) {
+            this.opponent.battleUnits.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    if (panic) {
+      for (let i = this.opponent.battleUnits.length - 1; i >= 0; i--) {
+        const u = this.opponent.battleUnits[i];
+        if (u && !u.special.epi_tas) {
+          let panicd = 0;
+          for (let j = 0; j < u.amount - u.dying; j++) {
+            if (Math.random() < 0.5) {
+              panicd++;
+            }
+          }
+          u.amount -= panicd;
+          if (u.amount <= 0) {
+            this.opponent.battleUnits.splice(i, 1);
+          }
+        }
+      }
+    }
+  }
+
+  isDead() {
+    return this.battleUnits.filter(u => !u.special.support).length === 0
+  }
+
+  willBeDeadSoon() {
+    return this.battleUnits.filter(u => !u.special.support).filter(u => u.amount - u.dying > 0).length === 0
+  }
+}
+
 
 class CombatSimRunner {
   protected battleSims: {
@@ -52,8 +205,11 @@ class CombatSimRunner {
     const battle = this.getBattle(id);
     if (!battle) return battle;
     if (this.battleSims[id] !== undefined) return null; // Already running
-    const battleUnits = {
-      attacking: battle.attacker.units.flatMap(u => {
+    const battleUnits : {
+      attacking: BattleUnit[],
+      defending: BattleUnit[]
+    } = {
+      attacking: battle.attacker.units.flatMap((u) => {
         const found = units.find(u2 => u.id === u2.id);
         if (!found) return [];
         const totalSides = Object.values(found.sides).reduce((a, c) => a + c, 0);
@@ -65,7 +221,7 @@ class CombatSimRunner {
             return [];
           }
         });
-        return found ? [{...found, totalSides, sidesList, amount: u.amount}] : [];
+        return found ? [{...found, totalSides, sidesList, amount: u.amount, dying: 0}] : [];
       }),
       defending: battle.defender.units.flatMap(u => {
         const found = units.find(u2 => u.id === u2.id);
@@ -79,7 +235,7 @@ class CombatSimRunner {
             return [];
           }
         });
-        return found ? [{...found, totalSides, sidesList, amount: u.amount}] : [];
+        return found ? [{...found, totalSides, sidesList, amount: u.amount, dying: 0}] : [];
       })
     }
     const interval = window.setInterval(() => {
@@ -91,86 +247,40 @@ class CombatSimRunner {
           break;
         }
 
+        let first_strike = currentBattleUnits.attacking.concat(currentBattleUnits.defending).some(u => u.special.first_strike);
+        let dawg_shock = currentBattleUnits.attacking.concat(currentBattleUnits.defending).some(u => u.special.dawg);
         while (true) {
-          // Roll the dice
-          let attackerATK = battle.attacker.attackModifier;
-          let attackerDEF = battle.attacker.defenceModifier;
-          for (let u of currentBattleUnits.attacking) {
-            for (let j = 0; j < u.amount; j++) {
-              let roll = Math.floor(Math.random() * u.totalSides) + 1
-              for (let side of u.sidesList) {
-                if (roll > side.chance) {
-                  roll -= side.chance
-                } else {
-                  if (side.action === 'ATK' || side.action === "ATK&DEF") {
-                    attackerATK++;
-                  }
-                  if (side.action === 'DEF' || side.action === "ATK&DEF") {
-                    attackerDEF++;
-                  }
-                  break;
-                }
-              }
-            }
-          }
-          let defenderATK = battle.defender.attackModifier;
-          let defenderDEF = battle.defender.defenceModifier;
-          for (let u of currentBattleUnits.defending) {
-            for (let j = 0; j < u.amount; j++) {
-              let roll = Math.floor(Math.random() * u.totalSides) + 1
-              for (let side of u.sidesList) {
-                if (roll > side.chance) {
-                  roll -= side.chance
-                } else {
-                  if (side.action === 'ATK' || side.action === "ATK&DEF") {
-                    defenderATK++;
-                  }
-                  if (side.action === 'DEF' || side.action === "ATK&DEF") {
-                    defenderDEF++;
-                  }
-                  break;
-                }
-              }
-            }
+          const first_strike_round = first_strike;
+          const dawg_shock_round = !first_strike_round && dawg_shock;
+          first_strike = false;
+          if (dawg_shock_round) {
+            dawg_shock = false;
           }
 
+          const attacker = new RoundSideState(battle.attacker, currentBattleUnits.attacking, {firstStrike: first_strike_round, dog: dawg_shock_round});
+          const defender = new RoundSideState(battle.defender, currentBattleUnits.defending, {firstStrike: first_strike_round, dog: dawg_shock_round});
+          attacker.setOpponent(defender);
+          defender.setOpponent(attacker);
 
-          defenderATK -= attackerDEF;
-          for (let i = currentBattleUnits.attacking.length - 1; i >= 0; i--) {
-            if (defenderATK <= 0) break;
-            const u = currentBattleUnits.attacking[i];
-            if (u && !u.special.support) {
-              defenderATK--
-              u.amount -= 1;
-              if (u.amount <= 0) {
-                currentBattleUnits.attacking.splice(i, 1);
-              }
-            }
-          }
+          attacker.roll();
+          defender.roll();
 
-          attackerATK -= defenderDEF;
-          for (let i = currentBattleUnits.defending.length - 1; i >= 0; i--) {
-            if (attackerATK <= 0) break;
-            const u = currentBattleUnits.defending[i];
-            if (u && !u.special.support) {
-              attackerATK--
-              u.amount -= 1;
-              if (u.amount <= 0) {
-                currentBattleUnits.defending.splice(i, 1);
-              }
-            }
-          }
+          attacker.dieFromWounds();
+          defender.dieFromWounds();
 
+          attacker.applyDamageToEnemy();
+          defender.applyDamageToEnemy();
 
           // Note: If attacker dies they lose even if they kill everyone
-          if (currentBattleUnits.attacking.filter(u => !u.special.support).length === 0) {
+          if (attacker.isDead()) {
             battle.iterations++;
             break;
           }
 
-          if (currentBattleUnits.defending.filter(u => !u.special.support).length === 0) {
+          if (defender.isDead()) {
             battle.iterations++;
-            battle.result.attackerVictories++;
+            // Berserkers that die next round don't actually win
+            if (!attacker.willBeDeadSoon()) battle.result.attackerVictories++;
             break;
           }
         }

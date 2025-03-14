@@ -1,11 +1,16 @@
-export type SideAction = 'ATK' | 'DEF' | 'ATK&DEF' | 'NIL';
+export type SideAction = 'ATK' | 'DEF' | 'ATK&DEF' | 'DBL' | 'NIL';
 
 export type UnitData = {
   id: string,
   name: string,
   sides: {[K in SideAction]?: number},
   special: {
-    support?: boolean
+    support?: boolean;
+    first_strike?: boolean;
+    bull_strength?: boolean;
+    dawg?: boolean;
+    epi_tas?: boolean;
+    phalanx?: boolean;
   }
 };
 
@@ -13,6 +18,7 @@ export type BattleSide = {
   units: {id: string, amount: number}[];
   attackModifier: number;
   defenceModifier: number;
+  general?: boolean;
 };
 
 export type BattleData = {
