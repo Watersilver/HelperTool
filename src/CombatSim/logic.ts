@@ -285,6 +285,7 @@ class CombatSimRunner {
             // Berserkers that die next round don't actually win
             if (!attacker.willBeDeadSoon()) {
               battle.result.attackerVictories++;
+            } else {
               battle.result.draws++;
             }
             break;
