@@ -604,6 +604,7 @@ function BattleUnitsCard({
               return next;
             })
           }}
+          sx={{mb: 3}}
         >
           General
         </Button>
