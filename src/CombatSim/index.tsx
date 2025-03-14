@@ -447,7 +447,8 @@ function BattleUnitsCard({
         }
         selected_battle.iterations = 0;
         selected_battle.result = {
-          attackerVictories: 0
+          attackerVictories: 0,
+          draws: 0
         };
       }
       next.script = undefined;
@@ -503,7 +504,8 @@ function BattleUnitsCard({
                         }
                         selected_battle.iterations = 0;
                         selected_battle.result = {
-                          attackerVictories: 0
+                          attackerVictories: 0,
+                          draws: 0
                         };
                       }
                     }
@@ -533,7 +535,8 @@ function BattleUnitsCard({
                         }
                         selected_battle.iterations = 0;
                         selected_battle.result = {
-                          attackerVictories: 0
+                          attackerVictories: 0,
+                          draws: 0
                         };
                       }
                     }
@@ -570,7 +573,7 @@ function BattleUnitsCard({
                       if (unit) {
                         found[field].units.push({id: unit.id, amount: 1});
                         found.iterations = 0;
-                        found.result = {attackerVictories: 0};
+                        found.result = {attackerVictories: 0, draws: 0};
                         newVal.script = undefined;
                       }
                     }
@@ -597,7 +600,8 @@ function BattleUnitsCard({
                 selected_battle[field].general = !selected_battle[field].general;
                 selected_battle.iterations = 0;
                 selected_battle.result = {
-                  attackerVictories: 0
+                  attackerVictories: 0,
+                  draws: 0
                 };
                 next.script = undefined;
               }
@@ -632,7 +636,8 @@ function BattleUnitsCard({
                 selected_battle[field].attackModifier = newVal;
                 selected_battle.iterations = 0;
                 selected_battle.result = {
-                  attackerVictories: 0
+                  attackerVictories: 0,
+                  draws: 0
                 };
                 next.script = undefined;
               }
@@ -659,7 +664,8 @@ function BattleUnitsCard({
                 selected_battle[field].defenceModifier = newVal;
                 selected_battle.iterations = 0;
                 selected_battle.result = {
-                  attackerVictories: 0
+                  attackerVictories: 0,
+                  draws: 0
                 };
               }
               next.script = undefined;
@@ -938,7 +944,7 @@ function CombatTab() {
       combatSim.battles.push({
         id: i.toString(),
         iterations: 0,
-        result: {attackerVictories: 0},
+        result: {attackerVictories: 0, draws: 0},
         attacker: {
           attackModifier: attacker.ATK.start + attacker.ATK.step * i,
           defenceModifier: attacker.DEF.start + attacker.DEF.step * i,
@@ -1072,7 +1078,7 @@ function CombatTab() {
           }
         }).join(', ')}`,
         victoryChance: (b.result.attackerVictories / b.iterations),
-        iterations: b.iterations
+        drawChance: (b.result.draws / b.iterations)
       }
     });
   }, [selected, units]);
@@ -1280,7 +1286,7 @@ function CombatTab() {
                       attacker: {units: [], attackModifier: 0, defenceModifier: 0},
                       defender: {units: [], attackModifier: 0, defenceModifier: 0},
                       iterations: 0,
-                      result: {attackerVictories: 0}
+                      result: {attackerVictories: 0, draws: 0}
                     });
                     return newVal;
                   })
@@ -1340,7 +1346,8 @@ defender: (local_start[, local_step])object, ... ; // object can be any unit, or
           yAxis={[{ max: 1, label: "Chance" }]}
           dataset={dataset}
           series={[
-            {dataKey: 'victoryChance', label: "Victory Chance"}
+            {dataKey: 'victoryChance', label: "Victory Chance"},
+            {dataKey: 'drawChance', label: "Draw Chance"}
           ]}
           height={444}
         />

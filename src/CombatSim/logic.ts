@@ -274,13 +274,19 @@ class CombatSimRunner {
           // Note: If attacker dies they lose even if they kill everyone
           if (attacker.isDead()) {
             battle.iterations++;
+            if (defender.isDead()) {
+              battle.result.draws++;
+            }
             break;
           }
 
           if (defender.isDead()) {
             battle.iterations++;
             // Berserkers that die next round don't actually win
-            if (!attacker.willBeDeadSoon()) battle.result.attackerVictories++;
+            if (!attacker.willBeDeadSoon()) {
+              battle.result.attackerVictories++;
+              battle.result.draws++;
+            }
             break;
           }
         }

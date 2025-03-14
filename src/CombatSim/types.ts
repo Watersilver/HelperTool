@@ -27,7 +27,8 @@ export type BattleData = {
   defender: BattleSide,
   iterations: number,
   result: {
-    attackerVictories: number
+    attackerVictories: number,
+    draws: number
   },
 };
 
