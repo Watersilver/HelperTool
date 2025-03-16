@@ -26,6 +26,7 @@ const sideActionList = (() => {
     DEF: true,
     "ATK&DEF": true,
     DBL: true,
+    XPL: true,
     NIL: true,
   }
   const list: SideAction[] = []
@@ -51,6 +52,24 @@ function EditUnitsMode() {
   const [deleting, setDeleting] = useState<UnitData | null>(null);
 
   const nameConflict = units.some(u => u.name.toLowerCase() === editing.name.toLowerCase() && u.id !== editing.id);
+
+  const editingSidesTotal = useMemo(() => {
+    let total = 0;
+    for (const side of Object.values(editing.sides)) {
+      total += side;
+    }
+    return total;
+  }, [editing]);
+  const explOnlyError = useMemo(() => {
+    if (!editing.sides.XPL) return false;
+    const s = structuredClone(editing.sides);
+    delete s.XPL
+    let total = 0;
+    for (const side of Object.values(s)) {
+      total += side;
+    }
+    return total == 0;
+  }, [editing]);
 
   return <Stack direction='row'>
     <Box>
@@ -132,7 +151,7 @@ function EditUnitsMode() {
             return next;
           });
         }}
-        disabled={editing.name === "" || nameConflict}
+        disabled={editing.name === "" || nameConflict || explOnlyError}
       >
         Save
       </Button>
@@ -402,6 +421,16 @@ function EditUnitsMode() {
               />
             })
           }
+          <Alert severity={explOnlyError ? 'error' : (editingSidesTotal !== 6 ? 'warning' : 'success')}>
+            <AlertTitle>
+              Die has {editingSidesTotal} sides!
+            </AlertTitle>
+            {
+              explOnlyError
+              ? "Explosive sides only cause infinite loops!"
+              : null
+            }
+          </Alert>
         </Stack>
       </Stack>
     </Container>

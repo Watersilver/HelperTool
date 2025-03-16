@@ -6,6 +6,7 @@ const sideActionList = (() => {
     DEF: true,
     "ATK&DEF": true,
     DBL: true,
+    XPL: true,
     NIL: true,
   }
   const list: SideAction[] = []
@@ -68,6 +69,11 @@ class RoundSideState {
               if (side.action === 'DBL') {
                 this.atk += 2;
                 success = true;
+              }
+              if (side.action === 'XPL') {
+                this.atk += 1;
+                success = true;
+                j -= 1;
               }
             }
             if (side.action === 'DEF' || side.action === "ATK&DEF") {
