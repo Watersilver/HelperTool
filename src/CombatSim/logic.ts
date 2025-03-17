@@ -2,10 +2,13 @@ import { BattleData, BattleSide, CombatSimulation, SideAction, UnitData } from "
 
 const sideActionList = (() => {
   const all: {[K in SideAction]: true} = {
-    ATK: true,
-    DEF: true,
     "ATK&DEF": true,
+    ATK: true,
     DBL: true,
+    TRPL: true,
+    DEF: true,
+    'DBL-DEF': true,
+    'TRPL-DEF': true,
     XPL: true,
     NIL: true,
   }
@@ -70,6 +73,10 @@ class RoundSideState {
                 this.atk += 2;
                 success = true;
               }
+              if (side.action === 'TRPL') {
+                this.atk += 3;
+                success = true;
+              }
               if (side.action === 'XPL') {
                 this.atk += 1;
                 success = true;
@@ -78,6 +85,14 @@ class RoundSideState {
             }
             if (side.action === 'DEF' || side.action === "ATK&DEF") {
               this.def++;
+              success = true;
+            }
+            if (side.action === 'DBL-DEF') {
+              this.def += 2;
+              success = true;
+            }
+            if (side.action === 'TRPL-DEF') {
+              this.def += 3;
               success = true;
             }
             break;

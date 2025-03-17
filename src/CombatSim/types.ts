@@ -1,4 +1,4 @@
-export type SideAction = 'ATK' | 'DEF' | 'ATK&DEF' | 'DBL' | 'XPL' | 'NIL';
+export type SideAction = 'ATK' | 'DEF' | 'ATK&DEF' | 'DBL' | 'TRPL' | 'XPL' | 'NIL' | 'DBL-DEF' | 'TRPL-DEF';
 
 export type UnitData = {
   id: string,

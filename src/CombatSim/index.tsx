@@ -22,10 +22,13 @@ const modulo = (n: number, d: number) => ((n % d) + d) % d;
 
 const sideActionList = (() => {
   const all: {[K in SideAction]: true} = {
-    ATK: true,
-    DEF: true,
     "ATK&DEF": true,
+    ATK: true,
     DBL: true,
+    TRPL: true,
+    DEF: true,
+    'DBL-DEF': true,
+    'TRPL-DEF': true,
     XPL: true,
     NIL: true,
   }
@@ -421,7 +424,7 @@ function EditUnitsMode() {
               />
             })
           }
-          <Alert severity={explOnlyError ? 'error' : (editingSidesTotal !== 6 ? 'warning' : 'success')}>
+          <Alert severity={explOnlyError ? 'error' : (editingSidesTotal !== 6 && editingSidesTotal !== 12 ? 'warning' : 'success')}>
             <AlertTitle>
               Die has {editingSidesTotal} sides!
             </AlertTitle>
