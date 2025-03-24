@@ -28,7 +28,8 @@ export type BattleData = {
   iterations: number,
   result: {
     attackerVictories: number,
-    draws: number
+    draws: number,
+    firstRoundDeaths: {attackerChance: number, defenderChance: number}[]
   },
 };
 

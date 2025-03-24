@@ -178,6 +178,12 @@ class RoundSideState {
     }
   }
 
+  remaining() {
+    return this.battleUnits.reduce((a, c) => {
+      return a + c.amount - c.dying
+    }, 0)
+  }
+
   isDead() {
     return this.battleUnits.filter(u => !u.special.support).length === 0
   }
@@ -270,6 +276,9 @@ class CombatSimRunner {
 
         let first_strike = currentBattleUnits.attacking.concat(currentBattleUnits.defending).some(u => u.special.first_strike);
         let dawg_shock = currentBattleUnits.attacking.concat(currentBattleUnits.defending).some(u => u.special.dawg);
+        let first_round = true
+        let attackerDeaths = 0
+        let defenderDeaths = 0
         while (true) {
           const first_strike_round = first_strike;
           const dawg_shock_round = !first_strike_round && dawg_shock;
@@ -277,11 +286,18 @@ class CombatSimRunner {
           if (dawg_shock_round) {
             dawg_shock = false;
           }
+          const is_first_round = first_round
+          if (!first_strike_round && !dawg_shock_round) {
+            first_round = false
+          }
 
           const attacker = new RoundSideState(battle.attacker, currentBattleUnits.attacking, {firstStrike: first_strike_round, dog: dawg_shock_round});
           const defender = new RoundSideState(battle.defender, currentBattleUnits.defending, {firstStrike: first_strike_round, dog: dawg_shock_round});
           attacker.setOpponent(defender);
           defender.setOpponent(attacker);
+
+          const aNumBef = attacker.remaining();
+          const dNumBef = defender.remaining();
 
           attacker.attack();
           defender.attack();
@@ -291,6 +307,37 @@ class CombatSimRunner {
 
           attacker.applyDamageToEnemy();
           defender.applyDamageToEnemy();
+
+          // Mark first round data here
+          if (is_first_round) {
+            const aNumAft = attacker.remaining();
+            const dNumAft = defender.remaining();
+
+            attackerDeaths += aNumBef - aNumAft
+            defenderDeaths += dNumBef - dNumAft
+
+            // Commit data if first round just ended
+            // (i.e we don't do first strike etc)
+            if (!first_round) {
+              const maxDeaths = Math.max(attackerDeaths, defenderDeaths)
+              // Will save you from bad saved data (from previous version)
+              if (!battle.result.firstRoundDeaths) {
+                battle.result.firstRoundDeaths = []
+              }
+              while (maxDeaths >= battle.result.firstRoundDeaths.length) {
+                battle.result.firstRoundDeaths.push({attackerChance: 0, defenderChance: 0})
+              }
+              const currentIterations = battle.iterations + 1
+              const prevWeight = battle.iterations / currentIterations
+              const currWeight = 1 / currentIterations
+              battle.result.firstRoundDeaths.forEach(d => {
+                d.attackerChance = d.attackerChance * prevWeight
+                d.defenderChance = d.defenderChance * prevWeight
+              })
+              battle.result.firstRoundDeaths[attackerDeaths]!.attackerChance += currWeight
+              battle.result.firstRoundDeaths[defenderDeaths]!.defenderChance += currWeight
+            }
+          }
 
           // Note: If attacker dies they lose even if they kill everyone
           if (attacker.isDead()) {
@@ -340,5 +387,3 @@ class CombatSimRunner {
 
 const combatSimRunner = new CombatSimRunner();
 export default combatSimRunner;
-
-// TODO: check if they die in the correct order

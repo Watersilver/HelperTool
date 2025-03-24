@@ -481,7 +481,8 @@ function BattleUnitsCard({
         selected_battle.iterations = 0;
         selected_battle.result = {
           attackerVictories: 0,
-          draws: 0
+          draws: 0,
+          firstRoundDeaths: []
         };
       }
       next.script = undefined;
@@ -538,7 +539,8 @@ function BattleUnitsCard({
                         selected_battle.iterations = 0;
                         selected_battle.result = {
                           attackerVictories: 0,
-                          draws: 0
+                          draws: 0,
+                          firstRoundDeaths: []
                         };
                       }
                     }
@@ -569,7 +571,8 @@ function BattleUnitsCard({
                         selected_battle.iterations = 0;
                         selected_battle.result = {
                           attackerVictories: 0,
-                          draws: 0
+                          draws: 0,
+                          firstRoundDeaths: []
                         };
                       }
                     }
@@ -606,7 +609,11 @@ function BattleUnitsCard({
                       if (unit) {
                         found[field].units.push({id: unit.id, amount: 1});
                         found.iterations = 0;
-                        found.result = {attackerVictories: 0, draws: 0};
+                        found.result = {
+                          attackerVictories: 0,
+                          draws: 0,
+                          firstRoundDeaths: []
+                        };
                         newVal.script = undefined;
                       }
                     }
@@ -634,7 +641,8 @@ function BattleUnitsCard({
                 selected_battle.iterations = 0;
                 selected_battle.result = {
                   attackerVictories: 0,
-                  draws: 0
+                  draws: 0,
+                  firstRoundDeaths: []
                 };
                 next.script = undefined;
               }
@@ -670,7 +678,8 @@ function BattleUnitsCard({
                 selected_battle.iterations = 0;
                 selected_battle.result = {
                   attackerVictories: 0,
-                  draws: 0
+                  draws: 0,
+                  firstRoundDeaths: []
                 };
                 next.script = undefined;
               }
@@ -698,7 +707,8 @@ function BattleUnitsCard({
                 selected_battle.iterations = 0;
                 selected_battle.result = {
                   attackerVictories: 0,
-                  draws: 0
+                  draws: 0,
+                  firstRoundDeaths: []
                 };
               }
               next.script = undefined;
@@ -978,7 +988,11 @@ function CombatTab() {
       combatSim.battles.push({
         id: i.toString(),
         iterations: 0,
-        result: {attackerVictories: 0, draws: 0},
+        result: {
+          attackerVictories: 0,
+          draws: 0,
+          firstRoundDeaths: []
+        },
         attacker: {
           attackModifier: attacker.ATK.start + attacker.ATK.step * i,
           defenceModifier: attacker.DEF.start + attacker.DEF.step * i,
@@ -1114,6 +1128,44 @@ function CombatTab() {
         victoryChance: (b.result.attackerVictories / b.iterations),
         drawChance: (b.result.draws / b.iterations)
       }
+    });
+  }, [selected, units]);
+
+  const firstRoundDatasets = useMemo(() => {
+    return selected.battles.filter(b => b.iterations).map(b => {
+      if (!b.result.firstRoundDeaths) {
+        b.result.firstRoundDeaths = []
+      };
+      return {
+        key: b.id,
+        dataX: b.result.firstRoundDeaths.map((_, i) => i.toString() + " Deaths"),
+        series: [
+          {
+            data: b.result.firstRoundDeaths.map(frd => frd.attackerChance),
+            label: 'Attacker: ' + b.attacker.units.flatMap(u => {
+              const unit = units.find(unit => unit.id === u.id);
+              if (unit) {
+                return [`${u.amount}x${unit.name}`];
+              } else {
+                return [];
+              }
+            }).join(', ')
+          },
+          {
+            data: b.result.firstRoundDeaths.map(frd => frd.defenderChance),
+            label: 'Defender: ' + b.defender.units.flatMap(u => {
+              const unit = units.find(unit => unit.id === u.id);
+              if (unit) {
+                return [`${u.amount}x${unit.name}`];
+              } else {
+                return [];
+              }
+            }).join(', ')
+          }
+        ]
+      }
+    }).filter(frd => {
+      return frd.dataX.length > 0
     });
   }, [selected, units]);
 
@@ -1364,7 +1416,11 @@ function CombatTab() {
                       attacker: {units: [], attackModifier: 0, defenceModifier: 0},
                       defender: {units: [], attackModifier: 0, defenceModifier: 0},
                       iterations: 0,
-                      result: {attackerVictories: 0, draws: 0}
+                      result: {
+                        attackerVictories: 0,
+                        draws: 0,
+                        firstRoundDeaths: []
+                      }
                     });
                     return newVal;
                   })
@@ -1419,16 +1475,45 @@ defender: (local_start[, local_step])object, ... ; // object can be any unit, or
             : null
           }
         </Stack>
-        <BarChart
-          xAxis={[{ scaleType: 'band', dataKey: 'battle', label: 'Battles' }]}
-          yAxis={[{ max: 1, label: "Chance" }]}
-          dataset={dataset}
-          series={[
-            {dataKey: 'victoryChance', label: "Victory Chance"},
-            {dataKey: 'drawChance', label: "Draw Chance"}
-          ]}
-          height={444}
-        />
+        <Stack spacing={1}>
+          <Card variant="outlined">
+            <CardHeader title="All Rounds Result" />
+            <CardContent>
+              <BarChart
+                xAxis={[{ scaleType: 'band', dataKey: 'battle', label: 'Battles' }]}
+                yAxis={[{ max: 1, label: "Chance" }]}
+                dataset={dataset}
+                series={[
+                  {dataKey: 'victoryChance', label: "Victory Chance"},
+                  {dataKey: 'drawChance', label: "Draw Chance"}
+                ]}
+                height={444}
+              />
+            </CardContent>
+          </Card>
+          <Card variant="outlined">
+            <CardHeader title="First Round Deaths" />
+            <CardContent>
+              {
+                firstRoundDatasets.map(frd => {
+                  return <BarChart
+                    key={frd.key}
+                    xAxis={[{
+                      scaleType: 'band',
+                      data: frd.dataX
+                    }]}
+                    yAxis={[{
+                      max: 1,
+                      label: "Death Chance"
+                    }]}
+                    series={frd.series}
+                    height={444}
+                  />
+                })
+              }
+            </CardContent>
+          </Card>
+        </Stack>
         {
           inputTab === "Script"
           ? <Typography textAlign='center'>
